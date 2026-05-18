@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { sql } from '@/lib/db';
 import { z } from 'zod';
 
 const rankingSchema = z.object({
@@ -14,7 +14,7 @@ const rankingSchema = z.object({
 
 export async function GET() {
   try {
-    const rankings = await query(`
+    const rankings = await sql`
       SELECT 
         r.*,
         json_agg(ri.* ORDER BY ri.position) as items
@@ -22,9 +22,10 @@ export async function GET() {
       LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
       GROUP BY r.id
       ORDER BY r.created_at DESC
-    `);
+    `;
     return NextResponse.json(rankings);
-  } catch {
+  } catch (error) {
+    console.error('Error en GET /api/rankings:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
@@ -39,20 +40,22 @@ export async function POST(request: Request) {
 
     const { title, category, is_favorite, items } = result.data;
 
-    const [ranking] = await query<{ id: string }>(
-      'INSERT INTO rankings (title, category, is_favorite) VALUES ($1, $2, $3) RETURNING *',
-      [title, category, is_favorite]
-    );
+    const [ranking] = await sql`
+      INSERT INTO rankings (title, category, is_favorite) 
+      VALUES (${title}, ${category}, ${is_favorite}) 
+      RETURNING *
+    `;
 
     for (const item of items) {
-      await query(
-        'INSERT INTO ranking_items (ranking_id, position, name) VALUES ($1, $2, $3)',
-        [ranking.id, item.position, item.name]
-      );
+      await sql`
+        INSERT INTO ranking_items (ranking_id, position, name) 
+        VALUES (${ranking.id}, ${item.position}, ${item.name})
+      `;
     }
 
     return NextResponse.json(ranking, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error('Error en POST /api/rankings:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

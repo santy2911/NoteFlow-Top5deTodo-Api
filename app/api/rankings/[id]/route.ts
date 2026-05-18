@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { sql } from '@/lib/db';
 import { z } from 'zod';
 
 const updateSchema = z.object({
@@ -14,22 +14,23 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const [ranking] = await query(`
+    const [ranking] = await sql`
       SELECT 
         r.*,
         json_agg(ri.* ORDER BY ri.position) as items
       FROM rankings r
       LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
-      WHERE r.id = $1
+      WHERE r.id = ${id}
       GROUP BY r.id
-    `, [id]);
+    `;
 
     if (!ranking) {
       return NextResponse.json({ error: 'Ranking no encontrado' }, { status: 404 });
     }
 
     return NextResponse.json(ranking);
-  } catch {
+  } catch (error) {
+    console.error('Error en GET /api/rankings/[id]:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
@@ -48,24 +49,24 @@ export async function PATCH(
 
     const { title, category, is_favorite } = result.data;
 
-    const [ranking] = await query(
-      `UPDATE rankings 
-       SET 
-         title = COALESCE($1, title),
-         category = COALESCE($2, category),
-         is_favorite = COALESCE($3, is_favorite),
-         updated_at = NOW()
-       WHERE id = $4
-       RETURNING *`,
-      [title ?? null, category ?? null, is_favorite ?? null, id]
-    );
+    const [ranking] = await sql`
+      UPDATE rankings 
+      SET 
+        title = COALESCE(${title ?? null}, title),
+        category = COALESCE(${category ?? null}, category),
+        is_favorite = COALESCE(${is_favorite ?? null}, is_favorite),
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
 
     if (!ranking) {
       return NextResponse.json({ error: 'Ranking no encontrado' }, { status: 404 });
     }
 
     return NextResponse.json(ranking);
-  } catch {
+  } catch (error) {
+    console.error('Error en PATCH /api/rankings/[id]:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
@@ -76,9 +77,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await query('DELETE FROM rankings WHERE id = $1', [id]);
+    await sql`DELETE FROM rankings WHERE id = ${id}`;
     return new Response(null, { status: 204 });
-  } catch {
+  } catch (error) {
+    console.error('Error en DELETE /api/rankings/[id]:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

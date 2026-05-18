@@ -1,0 +1,33 @@
+### GET todos los rankings
+GET http://localhost:3000/api/rankings
+
+### POST crear un ranking
+POST http://localhost:3000/api/rankings
+Content-Type: application/json
+
+{
+  "title": "Mis deportes favoritos",
+  "category": "Deportes",
+  "is_favorite": false,
+  "items": [
+    { "position": 1, "name": "Fútbol" },
+    { "position": 2, "name": "Baloncesto" },
+    { "position": 3, "name": "Tenis" },
+    { "position": 4, "name": "Boxeo" },
+    { "position": 5, "name": "Rugby" }
+  ]
+}
+
+### GET un ranking por id
+GET http://localhost:3000/api/rankings/dc783dd8-81d2-4873-8c4b-818b3dc31a40
+
+### PATCH actualizar un ranking
+PATCH http://localhost:3000/api/rankings/dc783dd8-81d2-4873-8c4b-818b3dc31a40
+Content-Type: application/json
+
+{
+  "is_favorite": true
+}
+
+### DELETE eliminar un ranking
+DELETE http://localhost:3000/api/rankings/dc783dd8-81d2-4873-8c4b-818b3dc31a40

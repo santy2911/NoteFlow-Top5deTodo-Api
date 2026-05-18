@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { sql } from '@/lib/db';
 import { z } from 'zod';
 
 const itemSchema = z.object({
@@ -18,17 +18,20 @@ export async function PATCH(
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const [item] = await query(
-      'UPDATE ranking_items SET name = $1 WHERE id = $2 RETURNING *',
-      [result.data.name, itemId]
-    );
+    const [item] = await sql`
+      UPDATE ranking_items 
+      SET name = ${result.data.name} 
+      WHERE id = ${itemId} 
+      RETURNING *
+    `;
 
     if (!item) {
       return NextResponse.json({ error: 'Ítem no encontrado' }, { status: 404 });
     }
 
     return NextResponse.json(item);
-  } catch {
+  } catch (error) {
+    console.error('Error en PATCH /api/items/[itemId]:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
