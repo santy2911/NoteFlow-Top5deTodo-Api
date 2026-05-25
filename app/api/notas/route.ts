@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
 
+const bloqueSchema = z.object({
+  id: z.string(),
+  tipo: z.enum(['texto', 'checklist']),
+  contenido: z.string().default(''),
+  completado: z.boolean().optional(),
+});
+
 const notaSchema = z.object({
-  titulo: z.string().min(1),
+  titulo: z.string().default(''),
   contenido: z.string().default(''),
   tiene_checklist: z.boolean().default(false),
   imagen_uri: z.string().nullable().default(null),
@@ -11,6 +18,7 @@ const notaSchema = z.object({
     texto: z.string().min(1),
     completado: z.boolean().default(false),
   })).default([]),
+  bloques: z.array(bloqueSchema).default([]),
 });
 
 export async function GET() {
@@ -39,11 +47,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { titulo, contenido, tiene_checklist, imagen_uri, checklist } = result.data;
+    const { titulo, contenido, tiene_checklist, imagen_uri, checklist, bloques } = result.data;
+    const bloquesJson = JSON.stringify(bloques);
 
     const [nota] = await sql`
-      INSERT INTO notas (titulo, contenido, tiene_checklist, imagen_uri)
-      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${imagen_uri})
+      INSERT INTO notas (titulo, contenido, tiene_checklist, imagen_uri, bloques)
+      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${imagen_uri}, ${bloquesJson}::jsonb)
       RETURNING *
     `;
 

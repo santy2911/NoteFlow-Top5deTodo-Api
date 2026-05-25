@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
 
+const bloqueSchema = z.object({
+  id: z.string(),
+  tipo: z.enum(['texto', 'checklist']),
+  contenido: z.string().default(''),
+  completado: z.boolean().optional(),
+});
+
 const notaUpdateSchema = z.object({
   titulo: z.string().min(1).optional(),
   contenido: z.string().optional(),
@@ -12,6 +19,7 @@ const notaUpdateSchema = z.object({
     texto: z.string().min(1),
     completado: z.boolean().default(false),
   })).optional(),
+  bloques: z.array(bloqueSchema).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +53,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { titulo, contenido, tiene_checklist, imagen_uri, checklist } = result.data;
+    const { titulo, contenido, tiene_checklist, imagen_uri, checklist, bloques } = result.data;
+    const bloquesJson = bloques !== undefined ? JSON.stringify(bloques) : undefined;
 
     const [nota] = await sql`
       UPDATE notas SET
@@ -53,6 +62,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         contenido = COALESCE(${contenido ?? null}, contenido),
         tiene_checklist = COALESCE(${tiene_checklist ?? null}, tiene_checklist),
         imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
+        bloques = COALESCE(${bloquesJson ? `${bloquesJson}::jsonb` : null}, bloques),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
