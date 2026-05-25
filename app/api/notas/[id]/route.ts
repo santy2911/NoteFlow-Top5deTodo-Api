@@ -14,7 +14,8 @@ const notaUpdateSchema = z.object({
   })).optional(),
 });
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const [nota] = await sql`
       SELECT
@@ -22,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
       FROM notas n
       LEFT JOIN checklist_items ci ON n.id = ci.nota_id
-      WHERE n.id = ${params.id}
+      WHERE n.id = ${id}
       GROUP BY n.id
     `;
     if (!nota) {
@@ -35,7 +36,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const body = await request.json();
     const result = notaUpdateSchema.safeParse(body);
@@ -52,7 +54,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         tiene_checklist = COALESCE(${tiene_checklist ?? null}, tiene_checklist),
         imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
         updated_at = NOW()
-      WHERE id = ${params.id}
+      WHERE id = ${id}
       RETURNING *
     `;
 
@@ -61,11 +63,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     if (checklist !== undefined) {
-      await sql`DELETE FROM checklist_items WHERE nota_id = ${params.id}`;
+      await sql`DELETE FROM checklist_items WHERE nota_id = ${id}`;
       for (const item of checklist) {
         await sql`
           INSERT INTO checklist_items (nota_id, texto, completado)
-          VALUES (${params.id}, ${item.texto}, ${item.completado})
+          VALUES (${id}, ${item.texto}, ${item.completado})
         `;
       }
     }
@@ -76,7 +78,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
       FROM notas n
       LEFT JOIN checklist_items ci ON n.id = ci.nota_id
-      WHERE n.id = ${params.id}
+      WHERE n.id = ${id}
       GROUP BY n.id
     `;
 
@@ -87,10 +89,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const [nota] = await sql`
-      DELETE FROM notas WHERE id = ${params.id} RETURNING id
+      DELETE FROM notas WHERE id = ${id} RETURNING id
     `;
     if (!nota) {
       return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 });
