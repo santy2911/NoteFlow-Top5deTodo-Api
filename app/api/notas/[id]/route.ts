@@ -1,0 +1,103 @@
+import { NextResponse } from 'next/server';
+import { sql } from '@/lib/db';
+import { z } from 'zod';
+
+const notaUpdateSchema = z.object({
+  titulo: z.string().min(1).optional(),
+  contenido: z.string().optional(),
+  tiene_checklist: z.boolean().optional(),
+  imagen_uri: z.string().nullable().optional(),
+  checklist: z.array(z.object({
+    id: z.string().optional(),
+    texto: z.string().min(1),
+    completado: z.boolean().default(false),
+  })).optional(),
+});
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  try {
+    const [nota] = await sql`
+      SELECT
+        n.*,
+        COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
+      FROM notas n
+      LEFT JOIN checklist_items ci ON n.id = ci.nota_id
+      WHERE n.id = ${params.id}
+      GROUP BY n.id
+    `;
+    if (!nota) {
+      return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 });
+    }
+    return NextResponse.json(nota);
+  } catch (error) {
+    console.error('Error en GET /api/notas/[id]:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const body = await request.json();
+    const result = notaUpdateSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
+    }
+
+    const { titulo, contenido, tiene_checklist, imagen_uri, checklist } = result.data;
+
+    const [nota] = await sql`
+      UPDATE notas SET
+        titulo = COALESCE(${titulo ?? null}, titulo),
+        contenido = COALESCE(${contenido ?? null}, contenido),
+        tiene_checklist = COALESCE(${tiene_checklist ?? null}, tiene_checklist),
+        imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
+        updated_at = NOW()
+      WHERE id = ${params.id}
+      RETURNING *
+    `;
+
+    if (!nota) {
+      return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 });
+    }
+
+    if (checklist !== undefined) {
+      await sql`DELETE FROM checklist_items WHERE nota_id = ${params.id}`;
+      for (const item of checklist) {
+        await sql`
+          INSERT INTO checklist_items (nota_id, texto, completado)
+          VALUES (${params.id}, ${item.texto}, ${item.completado})
+        `;
+      }
+    }
+
+    const [notaActualizada] = await sql`
+      SELECT
+        n.*,
+        COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
+      FROM notas n
+      LEFT JOIN checklist_items ci ON n.id = ci.nota_id
+      WHERE n.id = ${params.id}
+      GROUP BY n.id
+    `;
+
+    return NextResponse.json(notaActualizada);
+  } catch (error) {
+    console.error('Error en PUT /api/notas/[id]:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  try {
+    const [nota] = await sql`
+      DELETE FROM notas WHERE id = ${params.id} RETURNING id
+    `;
+    if (!nota) {
+      return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Nota eliminada' });
+  } catch (error) {
+    console.error('Error en DELETE /api/notas/[id]:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
