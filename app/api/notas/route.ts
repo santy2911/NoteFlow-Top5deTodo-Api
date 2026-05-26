@@ -7,6 +7,8 @@ const bloqueSchema = z.object({
   tipo: z.enum(['texto', 'checklist']),
   contenido: z.string().default(''),
   completado: z.boolean().optional(),
+  subrayado: z.boolean().optional(),
+  esChecklist: z.boolean().optional(),
 });
 
 const notaSchema = z.object({

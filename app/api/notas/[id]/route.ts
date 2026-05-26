@@ -7,6 +7,8 @@ const bloqueSchema = z.object({
   tipo: z.enum(['texto', 'checklist']),
   contenido: z.string().default(''),
   completado: z.boolean().optional(),
+  subrayado: z.boolean().optional(),
+  esChecklist: z.boolean().optional(),
 });
 
 const notaUpdateSchema = z.object({
@@ -62,7 +64,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         contenido = COALESCE(${contenido ?? null}, contenido),
         tiene_checklist = COALESCE(${tiene_checklist ?? null}, tiene_checklist),
         imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
-        bloques = COALESCE(${bloquesJson ? `${bloquesJson}::jsonb` : null}, bloques),
+        bloques = COALESCE(${bloquesJson ?? null}::jsonb, bloques),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
