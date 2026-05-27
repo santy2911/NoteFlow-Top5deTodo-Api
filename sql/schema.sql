@@ -3,6 +3,7 @@ CREATE TABLE rankings (
   title VARCHAR(255) NOT NULL,
   category VARCHAR(100) NOT NULL,
   is_favorite BOOLEAN DEFAULT FALSE,
+  is_pinned BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -19,6 +20,7 @@ CREATE TABLE notas (
   titulo VARCHAR(255) NOT NULL,
   contenido TEXT NOT NULL DEFAULT '',
   tiene_checklist BOOLEAN DEFAULT FALSE,
+  is_pinned BOOLEAN DEFAULT FALSE,
   imagen_uri TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

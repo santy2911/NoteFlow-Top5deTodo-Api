@@ -15,6 +15,7 @@ const notaUpdateSchema = z.object({
   titulo: z.string().min(1).optional(),
   contenido: z.string().optional(),
   tiene_checklist: z.boolean().optional(),
+  is_pinned: z.boolean().optional(),
   imagen_uri: z.string().nullable().optional(),
   checklist: z.array(z.object({
     id: z.string().optional(),
@@ -55,7 +56,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { titulo, contenido, tiene_checklist, imagen_uri, checklist, bloques } = result.data;
+    const { titulo, contenido, tiene_checklist, is_pinned, imagen_uri, checklist, bloques } = result.data;
     const bloquesJson = bloques !== undefined ? JSON.stringify(bloques) : undefined;
 
     const [nota] = await sql`
@@ -63,6 +64,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         titulo = COALESCE(${titulo ?? null}, titulo),
         contenido = COALESCE(${contenido ?? null}, contenido),
         tiene_checklist = COALESCE(${tiene_checklist ?? null}, tiene_checklist),
+        is_pinned = COALESCE(${is_pinned ?? null}, is_pinned),
         imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
         bloques = COALESCE(${bloquesJson ?? null}::jsonb, bloques),
         updated_at = NOW()

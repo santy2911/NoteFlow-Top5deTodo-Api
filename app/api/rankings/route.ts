@@ -6,6 +6,7 @@ const rankingSchema = z.object({
   title: z.string().min(3),
   category: z.string().min(1),
   is_favorite: z.boolean().optional().default(false),
+  is_pinned: z.boolean().optional().default(false),
   items: z.array(z.object({
     position: z.number().int().min(1).max(5),
     name: z.string().min(1),
@@ -21,7 +22,7 @@ export async function GET() {
       FROM rankings r
       LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
       GROUP BY r.id
-      ORDER BY r.created_at DESC
+      ORDER BY r.is_pinned DESC, r.created_at DESC
     `;
     return NextResponse.json(rankings);
   } catch (error) {
@@ -38,11 +39,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { title, category, is_favorite, items } = result.data;
+    const { title, category, is_favorite, is_pinned, items } = result.data;
 
     const [ranking] = await sql`
-      INSERT INTO rankings (title, category, is_favorite) 
-      VALUES (${title}, ${category}, ${is_favorite}) 
+      INSERT INTO rankings (title, category, is_favorite, is_pinned) 
+      VALUES (${title}, ${category}, ${is_favorite}, ${is_pinned}) 
       RETURNING *
     `;
 

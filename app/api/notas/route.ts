@@ -15,6 +15,7 @@ const notaSchema = z.object({
   titulo: z.string().default(''),
   contenido: z.string().default(''),
   tiene_checklist: z.boolean().default(false),
+  is_pinned: z.boolean().default(false),
   imagen_uri: z.string().nullable().default(null),
   checklist: z.array(z.object({
     texto: z.string().min(1),
@@ -32,7 +33,7 @@ export async function GET() {
       FROM notas n
       LEFT JOIN checklist_items ci ON n.id = ci.nota_id
       GROUP BY n.id
-      ORDER BY n.created_at DESC
+      ORDER BY n.is_pinned DESC, n.created_at DESC
     `;
     return NextResponse.json(notas);
   } catch (error) {
@@ -49,12 +50,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { titulo, contenido, tiene_checklist, imagen_uri, checklist, bloques } = result.data;
+    const { titulo, contenido, tiene_checklist, is_pinned, imagen_uri, checklist, bloques } = result.data;
     const bloquesJson = JSON.stringify(bloques);
 
     const [nota] = await sql`
-      INSERT INTO notas (titulo, contenido, tiene_checklist, imagen_uri, bloques)
-      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${imagen_uri}, ${bloquesJson}::jsonb)
+      INSERT INTO notas (titulo, contenido, tiene_checklist, is_pinned, imagen_uri, bloques)
+      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${is_pinned}, ${imagen_uri}, ${bloquesJson}::jsonb)
       RETURNING *
     `;
 

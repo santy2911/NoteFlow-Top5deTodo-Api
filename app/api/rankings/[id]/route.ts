@@ -6,6 +6,7 @@ const updateSchema = z.object({
   title: z.string().min(3).optional(),
   category: z.string().min(1).optional(),
   is_favorite: z.boolean().optional(),
+  is_pinned: z.boolean().optional(),
   items: z.array(z.object({
     position: z.number().int().min(1).max(5),
     name: z.string().min(1),
@@ -51,7 +52,7 @@ export async function PATCH(
       return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
     }
 
-    const { title, category, is_favorite, items } = result.data;
+    const { title, category, is_favorite, is_pinned, items } = result.data;
 
     const [ranking] = await sql`
       UPDATE rankings 
@@ -59,6 +60,7 @@ export async function PATCH(
         title = COALESCE(${title ?? null}, title),
         category = COALESCE(${category ?? null}, category),
         is_favorite = COALESCE(${is_favorite ?? null}, is_favorite),
+        is_pinned = COALESCE(${is_pinned ?? null}, is_pinned),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
