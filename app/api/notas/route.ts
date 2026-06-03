@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
+import { verificarToken } from '@/lib/firebaseAdmin';
 
 const bloqueSchema = z.object({
   id: z.string(),
@@ -24,7 +25,10 @@ const notaSchema = z.object({
   bloques: z.array(bloqueSchema).default([]),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const notas = await sql`
       SELECT
@@ -32,6 +36,7 @@ export async function GET() {
         COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
       FROM notas n
       LEFT JOIN checklist_items ci ON n.id = ci.nota_id
+      WHERE n.uid = ${uid}
       GROUP BY n.id
       ORDER BY n.is_pinned DESC, n.created_at DESC
     `;
@@ -43,6 +48,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const body = await request.json();
     const result = notaSchema.safeParse(body);
@@ -54,8 +62,8 @@ export async function POST(request: Request) {
     const bloquesJson = JSON.stringify(bloques);
 
     const [nota] = await sql`
-      INSERT INTO notas (titulo, contenido, tiene_checklist, is_pinned, imagen_uri, bloques)
-      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${is_pinned}, ${imagen_uri}, ${bloquesJson}::jsonb)
+      INSERT INTO notas (titulo, contenido, tiene_checklist, is_pinned, imagen_uri, bloques, uid)
+      VALUES (${titulo}, ${contenido}, ${tiene_checklist}, ${is_pinned}, ${imagen_uri}, ${bloquesJson}::jsonb, ${uid})
       RETURNING *
     `;
 

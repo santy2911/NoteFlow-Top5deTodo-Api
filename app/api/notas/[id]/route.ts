@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
+import { verificarToken } from '@/lib/firebaseAdmin';
 
 const bloqueSchema = z.object({
   id: z.string(),
@@ -25,7 +26,10 @@ const notaUpdateSchema = z.object({
   bloques: z.array(bloqueSchema).optional(),
 });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   const { id } = await params;
   try {
     const [nota] = await sql`
@@ -34,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         COALESCE(json_agg(ci.* ORDER BY ci.id) FILTER (WHERE ci.id IS NOT NULL), '[]') as checklist
       FROM notas n
       LEFT JOIN checklist_items ci ON n.id = ci.nota_id
-      WHERE n.id = ${id}
+      WHERE n.id = ${id} AND n.uid = ${uid}
       GROUP BY n.id
     `;
     if (!nota) {
@@ -48,6 +52,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   const { id } = await params;
   try {
     const body = await request.json();
@@ -68,7 +75,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         imagen_uri = COALESCE(${imagen_uri ?? null}, imagen_uri),
         bloques = COALESCE(${bloquesJson ?? null}::jsonb, bloques),
         updated_at = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND uid = ${uid}
       RETURNING *
     `;
 
@@ -103,11 +110,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   const { id } = await params;
   try {
     const [nota] = await sql`
-      DELETE FROM notas WHERE id = ${id} RETURNING id
+      DELETE FROM notas WHERE id = ${id} AND uid = ${uid} RETURNING id
     `;
     if (!nota) {
       return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 });

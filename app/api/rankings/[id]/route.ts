@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
+import { verificarToken } from '@/lib/firebaseAdmin';
 
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
@@ -14,9 +15,12 @@ const updateSchema = z.object({
 });
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const { id } = await params;
     const [ranking] = await sql`
@@ -25,7 +29,7 @@ export async function GET(
         json_agg(ri.* ORDER BY ri.position) as items
       FROM rankings r
       LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
-      WHERE r.id = ${id}
+      WHERE r.id = ${id} AND r.uid = ${uid}
       GROUP BY r.id
     `;
 
@@ -44,6 +48,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -62,7 +69,7 @@ export async function PATCH(
         is_favorite = COALESCE(${is_favorite ?? null}, is_favorite),
         is_pinned = COALESCE(${is_pinned ?? null}, is_pinned),
         updated_at = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND uid = ${uid}
       RETURNING *
     `;
 
@@ -98,12 +105,15 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const { id } = await params;
-    await sql`DELETE FROM rankings WHERE id = ${id}`;
+    await sql`DELETE FROM rankings WHERE id = ${id} AND uid = ${uid}`;
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error('Error en DELETE /api/rankings/[id]:', error);

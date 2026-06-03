@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { z } from 'zod';
+import { verificarToken } from '@/lib/firebaseAdmin';
 
 const rankingSchema = z.object({
   title: z.string().min(3),
@@ -13,7 +14,10 @@ const rankingSchema = z.object({
   })).length(5),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const rankings = await sql`
       SELECT 
@@ -21,6 +25,7 @@ export async function GET() {
         json_agg(ri.* ORDER BY ri.position) as items
       FROM rankings r
       LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
+      WHERE r.uid = ${uid}
       GROUP BY r.id
       ORDER BY r.is_pinned DESC, r.created_at DESC
     `;
@@ -32,6 +37,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const uid = await verificarToken(request);
+  if (!uid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   try {
     const body = await request.json();
     const result = rankingSchema.safeParse(body);
@@ -42,8 +50,8 @@ export async function POST(request: Request) {
     const { title, category, is_favorite, is_pinned, items } = result.data;
 
     const [ranking] = await sql`
-      INSERT INTO rankings (title, category, is_favorite, is_pinned) 
-      VALUES (${title}, ${category}, ${is_favorite}, ${is_pinned}) 
+      INSERT INTO rankings (title, category, is_favorite, is_pinned, uid) 
+      VALUES (${title}, ${category}, ${is_favorite}, ${is_pinned}, ${uid}) 
       RETURNING *
     `;
 
