@@ -62,7 +62,17 @@ export async function POST(request: Request) {
       `;
     }
 
-    return NextResponse.json(ranking, { status: 201 });
+    const [rankingConItems] = await sql`
+      SELECT 
+        r.*,
+        json_agg(ri.* ORDER BY ri.position) as items
+      FROM rankings r
+      LEFT JOIN ranking_items ri ON r.id = ri.ranking_id
+      WHERE r.id = ${ranking.id}
+      GROUP BY r.id
+    `;
+
+    return NextResponse.json(rankingConItems, { status: 201 });
   } catch (error) {
     console.error('Error en POST /api/rankings:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
